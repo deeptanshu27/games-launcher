@@ -1,0 +1,57 @@
+#ifndef MAINWINDOW_H
+#define MAINWINDOW_H
+
+#include <QMainWindow>
+
+QT_BEGIN_NAMESPACE
+namespace Ui {
+class MainWindow;
+}
+QT_END_NAMESPACE
+
+class MainWindow : public QMainWindow
+{
+    Q_OBJECT
+
+public:
+    MainWindow(QWidget *parent = nullptr);
+    ~MainWindow();
+
+    QTimer *timer;
+public slots:
+    void animationFunc();
+private:
+    Ui::MainWindow *ui;
+    QPixmap pix;
+
+    const int gap = 5;
+    std::vector<QPixmap> pixList;
+    std::vector<QString> runnablesList;
+
+    bool playSelected = true;
+
+    int width;
+
+    int originalWidth;
+
+    int oldPos;
+    float currPos;
+    int newPos;
+
+    int currActivity; // 0 = scrolling, 1 = loading
+
+    bool jump = false;
+
+    int buttonsPos;
+
+    void initImages();
+    float lerp(float start, float end, float t);
+    void runProgram();
+    void setButtonSelect();
+    void addFilesToList(std::string baseFolder, std::vector<std::string> allPathsInFile);
+protected:
+    void paintEvent(QPaintEvent *e) override;
+    void keyPressEvent(QKeyEvent *e) override;
+};
+
+#endif // MAINWINDOW_H
