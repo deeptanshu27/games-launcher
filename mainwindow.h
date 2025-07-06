@@ -24,7 +24,7 @@ private:
     Ui::MainWindow *ui;
     QPixmap pix;
 
-    const int gap = 5;
+    const int gap = 10;
     std::vector<QPixmap> pixList;
     std::vector<QString> runnablesList;
 
@@ -46,9 +46,11 @@ private:
 
     void initImages();
     float lerp(float start, float end, float t);
+    float lerp2(float start, float end, float t);
     void runProgram();
     void setButtonSelect();
     void addFilesToList(std::string baseFolder, std::vector<std::string> allPathsInFile);
+    QImage applyEffectToImage(QImage src, QGraphicsEffect *effect, int extent = 0);
 protected:
     void paintEvent(QPaintEvent *e) override;
     void keyPressEvent(QKeyEvent *e) override;

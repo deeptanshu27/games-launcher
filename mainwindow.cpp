@@ -10,23 +10,49 @@
 #include <filesystem>
 #include "fstream"
 #include "thread"
+#include <QPainterPath>
+#include <QGraphicsPixmapItem>
+#include <QGraphicsScene>
+#include <chrono>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
+    auto time_1 = std::chrono::system_clock::now();
+
     showFullScreen();
     ui->setupUi(this);
     setMouseTracking(true);
     ui->centralwidget->setMouseTracking(true);
 
+    auto time_2 = std::chrono::system_clock::now();
+
+    QPixmap bkgnd("C:/Users/Deeptanshu/Pictures/dat_game_thingy_background.png");
+    bkgnd = bkgnd.scaled(this->size());
+    QPalette palette;
+    QGraphicsBlurEffect *blur = new QGraphicsBlurEffect;
+    blur->setBlurRadius(8);
+    palette.setBrush(QPalette::Window, applyEffectToImage(bkgnd.toImage(), blur));
+    // palette.setBrush(QPalette::Window, bkgnd);
+    this->setPalette(palette);
+
+    // setStyleSheet("background:transparent;");
+    // setAttribute(Qt::WA_TranslucentBackground);
+    // setWindowFlags(Qt::FramelessWindowHint);
+
     buttonsPos = size().height() + 5;
     ui->widget->move(QPoint(ui->widget->x(), buttonsPos));
+
+    auto time_3= std::chrono::system_clock::now();
 
 
     initImages();
 
+    auto time_4= std::chrono::system_clock::now();
+
     if (pixList.size() <= 4) {
+        // if (pixList.size() != 0)
         width = (size().width()) / pixList.size() - gap;
     } else {
         width = (size().width()) / 5 - gap;
@@ -38,6 +64,18 @@ MainWindow::MainWindow(QWidget *parent)
     currPos = 0;
     newPos = pixList.size() / 2;
 
+    auto time_5= std::chrono::system_clock::now();
+
+    std::chrono::duration<double> elapsed21 = time_2 - time_1;
+    std::chrono::duration<double> elapsed32 = time_3 - time_2;
+    std::chrono::duration<double> elapsed43 = time_4 - time_3;
+    std::chrono::duration<double> elapsed54 = time_5 - time_4;
+
+    qInfo() << "elapsed from 1 -- 2: " << elapsed21.count() << "s";
+    qInfo() << "elapsed from 2 -- 3: " << elapsed32.count() << "s";
+    qInfo() << "elapsed from 3 -- 4: " << elapsed43.count() << "s";
+    qInfo() << "elapsed from 4 -- 5: " << elapsed54.count() << "s";
+
     timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(animationFunc()));
     timer->start(17);
@@ -48,8 +86,10 @@ void MainWindow::paintEvent(QPaintEvent *) {
 
     //painter.drawPixmap(0, 0, pixList[newPos]);
 
-    int y_pos = 0;
-    int height = size().height();
+    float y_pos = size().height() * 0.1f;
+    float height = size().height()*0.8f;
+
+    if (newPos - currPos < 0.0001) {}
 
     for (int i = 0; i < (int) pixList.size(); i++) {
         int initialPos = (1707/2 - width/2) + (i - currPos) * (width + gap);
@@ -63,11 +103,22 @@ void MainWindow::paintEvent(QPaintEvent *) {
         QRegion r(rect);
         painter.setClipRegion(r);
         painter.drawPixmap(0, 0, pixList[i]);
+
+        if (i != newPos) {
+            QPainterPath path;
+            path.addRect(rect);
+            QColor translucentColor(0, 0, 0, 128); // Red with 50% transparency
+            painter.setBrush(QBrush(translucentColor));
+            painter.fillPath(path, painter.brush());
+        }
     }
 
+    int max_int = pixList.size() > 6 ? 6 : pixList.size();
+
     // if (newPos < 3) {
-        for (int i = 0; i < 3; i++) {
-            int initialPos = (1707/2 - width/2) + (i - currPos - 3) * (width + gap);
+    if (currPos < 3) {
+        for (int i = 0; i < max_int; i++) {
+            int initialPos = (1707/2 - width/2) + (i - currPos - max_int) * (width + gap);
             QRect rect(
                 initialPos,
                 y_pos,
@@ -77,12 +128,19 @@ void MainWindow::paintEvent(QPaintEvent *) {
 
             QRegion r(rect);
             painter.setClipRegion(r);
-            painter.drawPixmap(0, 0, pixList[pixList.size() - 3 + i]);
+            painter.drawPixmap(0, 0, pixList[pixList.size() - max_int + i]);
+
+            QPainterPath path;
+            path.addRect(rect);
+            QColor translucentColor(0, 0, 0, 128); // Red with 50% transparency
+            painter.setBrush(QBrush(translucentColor));
+            painter.fillPath(path, painter.brush());
         }
-    // }
+    }
 
     // if (newPos > (int) pixList.size() - 1 - 3) {
-        for (int i = 0; i < 3; i++) {
+    if (currPos > 3) {
+        for (int i = 0; i < max_int; i++) {
             int initialPos = (1707/2 - width/2) + (i + (pixList.size() - currPos)) * (width + gap);
             QRect rect(
                 initialPos,
@@ -94,8 +152,14 @@ void MainWindow::paintEvent(QPaintEvent *) {
             QRegion r(rect);
             painter.setClipRegion(r);
             painter.drawPixmap(0, 0, pixList[i]);
+
+            QPainterPath path;
+            path.addRect(rect);
+            QColor translucentColor(0, 0, 0, 128); // Red with 50% transparency
+            painter.setBrush(QBrush(translucentColor));
+            painter.fillPath(path, painter.brush());
         }
-    // }
+    }
 }
 
 void MainWindow::runProgram() {
@@ -103,48 +167,21 @@ void MainWindow::runProgram() {
     exit(0);
 }
 
-void MainWindow::setButtonSelect() {
-    playSelected = !playSelected;
-
-    ui->label_5->setText(playSelected ? "<" : "");
-    ui->label_4->setText(!playSelected ? "<" : "");
-}
-
 void MainWindow::keyPressEvent(QKeyEvent *e) {
-    if (currActivity == 1) {
-        if (e->key() == Qt::Key_Escape) {
-            if (currActivity == 1)
-                currActivity = -2;
-            else
-                currActivity = -1;
-        } else if (e->key() == Qt::Key_Return) {
-            if (playSelected)
-                runProgram();
-            else {
-                std::string loc = runnablesList[newPos].toStdString();
-                loc = loc.substr(0, loc.find("run.bat"));
-                QString qLoc = QString::fromStdString(loc);
-                QProcess::startDetached("cmd", {"/C", "start", "", qLoc});
-                exit(0);
-            }
-        } else if (e->key() == Qt::Key_Up || e->key() == Qt::Key_Down) {
-            setButtonSelect();
-        }
-    } else {
-        if (e->key() == Qt::Key_Left) {
-            newPos++;
-        } else if (e->key() == Qt::Key_Right) {
-            newPos--;
-        } else if (e->key() == Qt::Key_Return) {
-            currActivity = 1;
-        }
-        update();
+    if (e->key() == Qt::Key_Left) {
+        newPos++;
+    } else if (e->key() == Qt::Key_Right) {
+        newPos--;
+    } else if (e->key() == Qt::Key_Return) {
+        runProgram();
     }
+    update();
 
     if (newPos < 0) {newPos = pixList.size() - 1; jump = true;}
     else if (newPos > (int) pixList.size() - 1) {newPos = 0; jump = true;}
 }
 
+// TODO: Thread ts mofo
 void MainWindow::initImages() {
     std::string baseFolder = "C:\\Users\\Deeptanshu\\Personal\\Games";
 
@@ -165,8 +202,9 @@ void MainWindow::initImages() {
                 runnablesList.push_back(QString::fromStdString(runnable));
             }
         }
-        std::thread thread_obj(&MainWindow::addFilesToList, this, baseFolder, allPathsInFile);
-        thread_obj.detach();
+        // what does this do??
+        // std::thread thread_obj(&MainWindow::addFilesToList, this, baseFolder, allPathsInFile);
+        // thread_obj.detach();
     } else {
         addFilesToList(baseFolder, allPathsInFile);
     }
@@ -250,15 +288,8 @@ void MainWindow::animationFunc() {
         update();
     } else {
         if (pixList.size() > 4) {
-            if (currPos > newPos) {
-                currPos = lerp(currPos, newPos, 0.1);
-                update();
-            }
-
-            if (currPos < newPos) {
-                currPos = lerp(currPos, newPos, 0.1);
-                update();
-            }
+            currPos = lerp2(currPos, newPos, 0.1);
+            update();
         }
     }
 
@@ -280,6 +311,27 @@ void MainWindow::animationFunc() {
 float MainWindow::lerp(float start, float end, float t) {
     float val = start + (end - start) * t;
     return val;
+}
+
+float MainWindow::lerp2(float start, float end, float t) {
+    float val = start + (std::abs(end - start) > 1 ? (1 * std::abs(end - start)/(end - start)) : (end - start)) * t;
+    return val;
+}
+
+QImage MainWindow::applyEffectToImage(QImage src, QGraphicsEffect *effect, int extent)
+{
+    if(src.isNull()) return QImage();   //No need to do anything else!
+    if(!effect) return src;             //No need to do anything else!
+    QGraphicsScene scene;
+    QGraphicsPixmapItem item;
+    item.setPixmap(QPixmap::fromImage(src));
+    item.setGraphicsEffect(effect);
+    scene.addItem(&item);
+    QImage res(src.size()+QSize(extent*2, extent*2), QImage::Format_ARGB32);
+    res.fill(Qt::transparent);
+    QPainter ptr(&res);
+    scene.render(&ptr, QRectF(), QRectF( -extent, -extent, src.width()+extent*2, src.height()+extent*2 ) );
+    return res;
 }
 
 MainWindow::~MainWindow()
