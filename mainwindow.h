@@ -26,6 +26,7 @@ private:
 
     const int gap = 10;
     std::vector<QPixmap> pixList;
+    std::vector<std::string> pixPathsList;
     std::vector<QString> runnablesList;
 
     bool playSelected = true;
@@ -44,11 +45,14 @@ private:
 
     int buttonsPos;
 
+    void AddPixs();
     void initImages();
     float lerp(float start, float end, float t);
     float lerp2(float start, float end, float t);
     void runProgram();
     void setButtonSelect();
+    void PaintGameRect(int initial_pos, QPainter *painter, int i, int j, int k = 0);
+    void addToLists(std::string image, std::string runnable, std::vector<std::string> toAdd, std::vector<std::string> allPathsInFile);
     void addFilesToList(std::string baseFolder, std::vector<std::string> allPathsInFile);
     QImage applyEffectToImage(QImage src, QGraphicsEffect *effect, int extent = 0);
 protected:

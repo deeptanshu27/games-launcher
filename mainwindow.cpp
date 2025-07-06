@@ -9,24 +9,22 @@
 #include "QProcess"
 #include <filesystem>
 #include "fstream"
-#include "thread"
 #include <QPainterPath>
 #include <QGraphicsPixmapItem>
 #include <QGraphicsScene>
-#include <chrono>
+// #include <chrono>
+#include <QtConcurrent/QtConcurrentRun>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
-    auto time_1 = std::chrono::system_clock::now();
+    // auto time_4= std::chrono::system_clock::now();
 
     showFullScreen();
     ui->setupUi(this);
     setMouseTracking(true);
     ui->centralwidget->setMouseTracking(true);
-
-    auto time_2 = std::chrono::system_clock::now();
 
     QPixmap bkgnd("C:/Users/Deeptanshu/Pictures/dat_game_thingy_background.png");
     bkgnd = bkgnd.scaled(this->size());
@@ -34,22 +32,14 @@ MainWindow::MainWindow(QWidget *parent)
     QGraphicsBlurEffect *blur = new QGraphicsBlurEffect;
     blur->setBlurRadius(8);
     palette.setBrush(QPalette::Window, applyEffectToImage(bkgnd.toImage(), blur));
-    // palette.setBrush(QPalette::Window, bkgnd);
     this->setPalette(palette);
 
-    // setStyleSheet("background:transparent;");
-    // setAttribute(Qt::WA_TranslucentBackground);
-    // setWindowFlags(Qt::FramelessWindowHint);
+    QFuture _ = QtConcurrent::run(&MainWindow::AddPixs, this);
 
     buttonsPos = size().height() + 5;
     ui->widget->move(QPoint(ui->widget->x(), buttonsPos));
 
-    auto time_3= std::chrono::system_clock::now();
-
-
     initImages();
-
-    auto time_4= std::chrono::system_clock::now();
 
     if (pixList.size() <= 4) {
         // if (pixList.size() != 0)
@@ -64,101 +54,63 @@ MainWindow::MainWindow(QWidget *parent)
     currPos = 0;
     newPos = pixList.size() / 2;
 
-    auto time_5= std::chrono::system_clock::now();
-
-    std::chrono::duration<double> elapsed21 = time_2 - time_1;
-    std::chrono::duration<double> elapsed32 = time_3 - time_2;
-    std::chrono::duration<double> elapsed43 = time_4 - time_3;
-    std::chrono::duration<double> elapsed54 = time_5 - time_4;
-
-    qInfo() << "elapsed from 1 -- 2: " << elapsed21.count() << "s";
-    qInfo() << "elapsed from 2 -- 3: " << elapsed32.count() << "s";
-    qInfo() << "elapsed from 3 -- 4: " << elapsed43.count() << "s";
-    qInfo() << "elapsed from 4 -- 5: " << elapsed54.count() << "s";
-
     timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(animationFunc()));
     timer->start(17);
+
+    // auto time_5= std::chrono::system_clock::now();
+    // std::chrono::duration<double> elapsed54 = time_5 - time_4;
+    // qInfo() << "elapsed from 4 -- 5: " << elapsed54.count() << "s";
 }
 
 void MainWindow::paintEvent(QPaintEvent *) {
     QPainter painter(this);
 
-    //painter.drawPixmap(0, 0, pixList[newPos]);
-
-    float y_pos = size().height() * 0.1f;
-    float height = size().height()*0.8f;
-
     if (newPos - currPos < 0.0001) {}
 
     for (int i = 0; i < (int) pixList.size(); i++) {
         int initialPos = (1707/2 - width/2) + (i - currPos) * (width + gap);
-        QRect rect(
-            initialPos,
-            y_pos,
-            width,
-            height
-            );
-
-        QRegion r(rect);
-        painter.setClipRegion(r);
-        painter.drawPixmap(0, 0, pixList[i]);
-
-        if (i != newPos) {
-            QPainterPath path;
-            path.addRect(rect);
-            QColor translucentColor(0, 0, 0, 128); // Red with 50% transparency
-            painter.setBrush(QBrush(translucentColor));
-            painter.fillPath(path, painter.brush());
-        }
+        PaintGameRect(initialPos, &painter, i, newPos);
     }
 
     int max_int = pixList.size() > 6 ? 6 : pixList.size();
 
-    // if (newPos < 3) {
     if (currPos < 3) {
         for (int i = 0; i < max_int; i++) {
             int initialPos = (1707/2 - width/2) + (i - currPos - max_int) * (width + gap);
-            QRect rect(
-                initialPos,
-                y_pos,
-                width,
-                height
-                );
-
-            QRegion r(rect);
-            painter.setClipRegion(r);
-            painter.drawPixmap(0, 0, pixList[pixList.size() - max_int + i]);
-
-            QPainterPath path;
-            path.addRect(rect);
-            QColor translucentColor(0, 0, 0, 128); // Red with 50% transparency
-            painter.setBrush(QBrush(translucentColor));
-            painter.fillPath(path, painter.brush());
+            PaintGameRect(initialPos, &painter, i, i - 1, pixList.size() - max_int);
         }
     }
 
-    // if (newPos > (int) pixList.size() - 1 - 3) {
     if (currPos > 3) {
         for (int i = 0; i < max_int; i++) {
             int initialPos = (1707/2 - width/2) + (i + (pixList.size() - currPos)) * (width + gap);
-            QRect rect(
-                initialPos,
-                y_pos,
-                width,
-                height
-                );
-
-            QRegion r(rect);
-            painter.setClipRegion(r);
-            painter.drawPixmap(0, 0, pixList[i]);
-
-            QPainterPath path;
-            path.addRect(rect);
-            QColor translucentColor(0, 0, 0, 128); // Red with 50% transparency
-            painter.setBrush(QBrush(translucentColor));
-            painter.fillPath(path, painter.brush());
+            PaintGameRect(initialPos, &painter, i, i - 1);
         }
+    }
+}
+
+void MainWindow::PaintGameRect(int initialPos, QPainter *painter, int i, int j, int k) {
+    float y_pos  = size().height() * 0.1f;
+    float height = size().height() * 0.8f;
+
+    QRect rect(
+        initialPos,
+        y_pos,
+        width,
+        height
+        );
+
+    QRegion r(rect);
+    painter->setClipRegion(r);
+    painter->drawPixmap(0, 0, pixList[k + i]);
+
+    if (i != j) {
+        QPainterPath path;
+        path.addRect(rect);
+        QColor translucentColor(0, 0, 0, 128); // semi transparent black
+        painter->setBrush(QBrush(translucentColor));
+        painter->fillPath(path, painter->brush());
     }
 }
 
@@ -169,9 +121,9 @@ void MainWindow::runProgram() {
 
 void MainWindow::keyPressEvent(QKeyEvent *e) {
     if (e->key() == Qt::Key_Left) {
-        newPos++;
-    } else if (e->key() == Qt::Key_Right) {
         newPos--;
+    } else if (e->key() == Qt::Key_Right) {
+        newPos++;
     } else if (e->key() == Qt::Key_Return) {
         runProgram();
     }
@@ -181,7 +133,14 @@ void MainWindow::keyPressEvent(QKeyEvent *e) {
     else if (newPos > (int) pixList.size() - 1) {newPos = 0; jump = true;}
 }
 
-// TODO: Thread ts mofo
+void MainWindow::AddPixs() {
+    for (size_t i = 0; i < pixPathsList.size(); i++) {
+        QPixmap temp = QPixmap(QString::fromStdString(pixPathsList[i]));
+        pixList[i].swap(temp);
+        pixList[i] = size().height() > size().width() ? pixList[i].scaledToHeight(size().height(), Qt::SmoothTransformation) : pixList[i].scaledToWidth(size().width(), Qt::SmoothTransformation);
+    }
+}
+
 void MainWindow::initImages() {
     std::string baseFolder = "C:\\Users\\Deeptanshu\\Personal\\Games";
 
@@ -198,22 +157,17 @@ void MainWindow::initImages() {
                 std::string image = content.substr(0, content.find("::"));
                 std::string runnable = content.substr(content.find("::") + 2);
 
-                pixList.push_back(QPixmap(QString::fromStdString(image)));
+                pixPathsList.push_back(image);
+                // pixList.push_back(QPixmap(QString::fromStdString(image)));
+                pixList.push_back(QPixmap());
                 runnablesList.push_back(QString::fromStdString(runnable));
             }
         }
-        // what does this do??
-        // std::thread thread_obj(&MainWindow::addFilesToList, this, baseFolder, allPathsInFile);
-        // thread_obj.detach();
     } else {
         addFilesToList(baseFolder, allPathsInFile);
     }
 
     jsonFile.close();
-
-    for (int i = 0; i < (int) pixList.size(); i++) {
-        pixList[i] =  size().height() > size().width() ? pixList[i].scaledToHeight(size().height(), Qt::SmoothTransformation) : pixList[i].scaledToWidth(size().width(), Qt::SmoothTransformation);
-    }
 }
 
 void MainWindow::addFilesToList(std::string baseFolder, std::vector<std::string> allPathsInFile) {
@@ -235,24 +189,19 @@ void MainWindow::addFilesToList(std::string baseFolder, std::vector<std::string>
 
         }
 
-        if (image != "" && runnable != "") {
-            std::string substr = image.substr(0, image.size() - 10);
-            if (runnable.find(substr) != std::string::npos) {
-                std::string fullName = image + "::" + runnable;
-                if (std::find(allPathsInFile.begin(), allPathsInFile.end(), fullName) == allPathsInFile.end()) {
-                    toAdd.push_back(fullName);
-                    QPixmap tmpMap(QString::fromStdString(image));
-                    tmpMap =  size().height() > size().width() ? tmpMap.scaledToHeight(size().height(), Qt::SmoothTransformation) : tmpMap.scaledToWidth(size().width(), Qt::SmoothTransformation);
-                    pixList.push_back(tmpMap);
-                    runnablesList.push_back(QString::fromStdString(runnable));
-                }
-                image = "";
-                runnable = "";
-            }
-        }
-
+        addToLists(image, runnable, std::ref(toAdd), std::ref(allPathsInFile));
     }
+    addToLists(image, runnable, std::ref(toAdd), std::ref(allPathsInFile));
 
+    std::ofstream outFile;
+    outFile.open("C:\\Users\\Deeptanshu\\Documents\\killme.txt", std::ios_base::app);
+    for (auto& s : toAdd) {
+        outFile << s << "\n";
+    }
+    outFile.close();
+}
+
+void MainWindow::addToLists(std::string image, std::string runnable, std::vector<std::string> toAdd, std::vector<std::string> allPathsInFile) {
     if (image != "" && runnable != "") {
         std::string substr = image.substr(0, image.size() - 10);
         if (runnable.find(substr) != std::string::npos) {
@@ -268,13 +217,6 @@ void MainWindow::addFilesToList(std::string baseFolder, std::vector<std::string>
             runnable = "";
         }
     }
-
-    std::ofstream outFile;
-    outFile.open("C:\\Users\\Deeptanshu\\Documents\\killme.txt", std::ios_base::app);
-    for (auto& s : toAdd) {
-        outFile << s << "\n";
-    }
-    outFile.close();
 }
 
 void MainWindow::animationFunc() {
@@ -287,24 +229,10 @@ void MainWindow::animationFunc() {
         jump = false;
         update();
     } else {
-        if (pixList.size() > 4) {
+        if (pixList.size() > 4 && std::abs(currPos - newPos) > 0.001f) {
             currPos = lerp2(currPos, newPos, 0.1);
             update();
         }
-    }
-
-    if (currActivity == 1) {
-        width = lerp(width, size().width() + 2*gap, 0.1);
-
-        buttonsPos = lerp(buttonsPos, 760, 0.2);
-        ui->widget->move(QPoint(ui->widget->x(), buttonsPos));
-
-        update();
-    } else if (currActivity == -2) {
-        width = lerp(width, originalWidth, 0.1);
-
-        buttonsPos = lerp(buttonsPos, size().height() + 5, 0.2);
-        ui->widget->move(QPoint(ui->widget->x(), buttonsPos));
     }
 }
 
