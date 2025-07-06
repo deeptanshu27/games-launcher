@@ -52,7 +52,7 @@ private:
     void runProgram();
     void setButtonSelect();
     void PaintGameRect(int initial_pos, QPainter *painter, int i, int j, int k = 0);
-    void addToLists(std::string image, std::string runnable, std::vector<std::string> toAdd, std::vector<std::string> allPathsInFile);
+    bool addToLists(std::string image, std::string runnable, std::vector<std::string> *toAdd, std::vector<std::string> *allPathsInFile);
     void addFilesToList(std::string baseFolder, std::vector<std::string> allPathsInFile);
     QImage applyEffectToImage(QImage src, QGraphicsEffect *effect, int extent = 0);
 protected:

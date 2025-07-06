@@ -12,7 +12,6 @@
 #include <QPainterPath>
 #include <QGraphicsPixmapItem>
 #include <QGraphicsScene>
-// #include <chrono>
 #include <QtConcurrent/QtConcurrentRun>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -34,15 +33,13 @@ MainWindow::MainWindow(QWidget *parent)
     palette.setBrush(QPalette::Window, applyEffectToImage(bkgnd.toImage(), blur));
     this->setPalette(palette);
 
-    QFuture _ = QtConcurrent::run(&MainWindow::AddPixs, this);
-
     buttonsPos = size().height() + 5;
     ui->widget->move(QPoint(ui->widget->x(), buttonsPos));
 
     initImages();
+    QFuture _ = QtConcurrent::run(&MainWindow::AddPixs, this);
 
-    if (pixList.size() <= 4) {
-        // if (pixList.size() != 0)
+    if (pixPathsList.size() <= 4) {
         width = (size().width()) / pixList.size() - gap;
     } else {
         width = (size().width()) / 5 - gap;
@@ -103,7 +100,10 @@ void MainWindow::PaintGameRect(int initialPos, QPainter *painter, int i, int j, 
 
     QRegion r(rect);
     painter->setClipRegion(r);
-    painter->drawPixmap(0, 0, pixList[k + i]);
+    QPixmap x = pixList[k + i];
+    if (!x.isNull()) {
+        painter->drawPixmap(0, 0, x);
+    }
 
     if (i != j) {
         QPainterPath path;
@@ -158,7 +158,6 @@ void MainWindow::initImages() {
                 std::string runnable = content.substr(content.find("::") + 2);
 
                 pixPathsList.push_back(image);
-                // pixList.push_back(QPixmap(QString::fromStdString(image)));
                 pixList.push_back(QPixmap());
                 runnablesList.push_back(QString::fromStdString(runnable));
             }
@@ -175,9 +174,14 @@ void MainWindow::addFilesToList(std::string baseFolder, std::vector<std::string>
     std::string image = "";
     std::string runnable = "";
 
-    for (auto& p : std::filesystem::recursive_directory_iterator(baseFolder)) {
-
-        if (p.is_regular_file()) {
+    for (auto& c : std::filesystem::directory_iterator(baseFolder)) {
+        if (!c.is_directory()) {
+            continue;
+        }
+        for (auto& p : std::filesystem::directory_iterator(c)) {
+            if (!p.is_regular_file()) {
+                continue;
+            }
 
             std::string path = p.path().string();
 
@@ -187,11 +191,15 @@ void MainWindow::addFilesToList(std::string baseFolder, std::vector<std::string>
                 runnable = path;
             }
 
-        }
+            if (addToLists(image, runnable, &toAdd, &allPathsInFile)) {
+                image = "";
+                runnable = "";
+            }
 
-        addToLists(image, runnable, std::ref(toAdd), std::ref(allPathsInFile));
+        }
     }
-    addToLists(image, runnable, std::ref(toAdd), std::ref(allPathsInFile));
+
+    addToLists(image, runnable, &toAdd, &allPathsInFile);
 
     std::ofstream outFile;
     outFile.open("C:\\Users\\Deeptanshu\\Documents\\killme.txt", std::ios_base::app);
@@ -201,22 +209,22 @@ void MainWindow::addFilesToList(std::string baseFolder, std::vector<std::string>
     outFile.close();
 }
 
-void MainWindow::addToLists(std::string image, std::string runnable, std::vector<std::string> toAdd, std::vector<std::string> allPathsInFile) {
-    if (image != "" && runnable != "") {
-        std::string substr = image.substr(0, image.size() - 10);
-        if (runnable.find(substr) != std::string::npos) {
-            std::string fullName = image + "::" + runnable;
-            if (std::find(allPathsInFile.begin(), allPathsInFile.end(), fullName) == allPathsInFile.end()) {
-                toAdd.push_back(fullName);
-                QPixmap tmpMap(QString::fromStdString(image));
-                tmpMap =  size().height() > size().width() ? tmpMap.scaledToHeight(size().height(), Qt::SmoothTransformation) : tmpMap.scaledToWidth(size().width(), Qt::SmoothTransformation);
-                pixList.push_back(tmpMap);
-                runnablesList.push_back(QString::fromStdString(runnable));
-            }
-            image = "";
-            runnable = "";
+bool MainWindow::addToLists(std::string image, std::string runnable, std::vector<std::string> *toAdd, std::vector<std::string> *allPathsInFile) {
+    if (image == "" || runnable == "") return false;
+    std::string substr = image.substr(0, image.size() - 10);
+    if (runnable.find(substr) != std::string::npos) {
+        std::string fullName = image + "::" + runnable;
+        if (std::find(allPathsInFile->begin(), allPathsInFile->end(), fullName) == allPathsInFile->end()) {
+            toAdd->push_back(fullName);
+            pixList.push_back(QPixmap());
+            runnablesList.push_back(QString::fromStdString(runnable));
+            pixPathsList.push_back(image);
         }
+        image = "";
+        runnable = "";
+        return true;
     }
+    return false;
 }
 
 void MainWindow::animationFunc() {
