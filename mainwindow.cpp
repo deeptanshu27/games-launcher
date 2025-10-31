@@ -13,6 +13,7 @@
 #include <QGraphicsPixmapItem>
 #include <QGraphicsScene>
 #include <QtConcurrent/QtConcurrentRun>
+#include <QDebug>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -63,27 +64,21 @@ MainWindow::MainWindow(QWidget *parent)
 void MainWindow::paintEvent(QPaintEvent *) {
     QPainter painter(this);
 
-    if (newPos - currPos < 0.0001) {}
+    // for (int i = 0; i < (int) pixList.size(); i++) {
 
-    for (int i = 0; i < (int) pixList.size(); i++) {
-        int initialPos = (1707/2 - width/2) + (i - currPos) * (width + gap);
-        PaintGameRect(initialPos, &painter, i, newPos);
-    }
+    // float K = (1707/2 - width/2);
+    float K = 0;
 
-    int max_int = pixList.size() > 6 ? 6 : pixList.size();
+    // int a = newPos;
+    // int b = newPos + 5;
 
-    if (currPos < 3) {
-        for (int i = 0; i < max_int; i++) {
-            int initialPos = (1707/2 - width/2) + (i - currPos - max_int) * (width + gap);
-            PaintGameRect(initialPos, &painter, i, i - 1, pixList.size() - max_int);
-        }
-    }
-
-    if (currPos > 3) {
-        for (int i = 0; i < max_int; i++) {
-            int initialPos = (1707/2 - width/2) + (i + (pixList.size() - currPos)) * (width + gap);
-            PaintGameRect(initialPos, &painter, i, i - 1);
-        }
+    for (int i = currPos - 1; i < currPos + 5 + 1; i++) {
+        int initialPos = K + (i - currPos) * (width + gap);
+        int index = i;
+        if (i >= pixList.size()) index = i - pixList.size();
+        if (i < 0) index = pixList.size() + i;
+        if (index >= pixList.size()) index = index - pixList.size(); // cus sometimes u gotta subtract twice :>
+        PaintGameRect(initialPos, &painter, index, newPos + 2 >= pixList.size() ? (newPos + 2) - pixList.size(): newPos + 2);
     }
 }
 
@@ -242,11 +237,6 @@ void MainWindow::animationFunc() {
             update();
         }
     }
-}
-
-float MainWindow::lerp(float start, float end, float t) {
-    float val = start + (end - start) * t;
-    return val;
 }
 
 float MainWindow::lerp2(float start, float end, float t) {
