@@ -1,32 +1,39 @@
-#include "mainwindow.h"
-#include "ui_mainwindow.h"
-#include "qpainter.h"
-#include "QKeyEvent"
-#include "QTimer"
-#include "QDebug"
-#include "QGraphicsEffect"
-#include "QFontDatabase"
-#include "QProcess"
+#include <mainwindow.h>
+#include <ui_mainwindow.h>
+#include <qpainter.h>
+#include <QKeyEvent>
+#include <QTimer>
+#include <QDebug>
+#include <QGraphicsEffect>
+#include <QFontDatabase>
+#include <QProcess>
 #include <filesystem>
-#include "fstream"
+#include <fstream>
 #include <QPainterPath>
 #include <QGraphicsPixmapItem>
 #include <QGraphicsScene>
 #include <QtConcurrent/QtConcurrentRun>
+#include <windows.h>
+#include <iostream>
 #include <QDebug>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
-    // auto time_4= std::chrono::system_clock::now();
-
-    showFullScreen();
     ui->setupUi(this);
+    showFullScreen();
     setMouseTracking(true);
     ui->centralwidget->setMouseTracking(true);
 
-    QPixmap bkgnd("C:/Users/Deeptanshu/Pictures/dat_game_thingy_background.png");
+    // https://stackoverflow.com/questions/34065/how-to-read-a-value-from-the-windows-registry
+    std::wstring regSubKey = L"Control Panel\\Desktop";
+    std::wstring regValue(L"WallPaper");
+    std::wstring valueFromRegistry;
+    valueFromRegistry = GetStringValueFromHKLM(regSubKey, regValue);
+
+    QString str(valueFromRegistry);
+    QPixmap bkgnd(str);
     bkgnd = bkgnd.scaled(this->size());
     QPalette palette;
     QGraphicsBlurEffect *blur = new QGraphicsBlurEffect;
@@ -38,13 +45,10 @@ MainWindow::MainWindow(QWidget *parent)
     ui->widget->move(QPoint(ui->widget->x(), buttonsPos));
 
     initImages();
+    // AddPixs();
     QFuture _ = QtConcurrent::run(&MainWindow::AddPixs, this);
 
-    if (pixPathsList.size() <= 4) {
-        width = (size().width()) / pixList.size() - gap;
-    } else {
-        width = (size().width()) / 5 - gap;
-    }
+    width = (size().width()) / 5 - gap;
 
     originalWidth = width;
 
@@ -55,30 +59,25 @@ MainWindow::MainWindow(QWidget *parent)
     timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(animationFunc()));
     timer->start(17);
-
-    // auto time_5= std::chrono::system_clock::now();
-    // std::chrono::duration<double> elapsed54 = time_5 - time_4;
-    // qInfo() << "elapsed from 4 -- 5: " << elapsed54.count() << "s";
 }
 
 void MainWindow::paintEvent(QPaintEvent *) {
     QPainter painter(this);
 
-    // for (int i = 0; i < (int) pixList.size(); i++) {
-
-    // float K = (1707/2 - width/2);
-    float K = 0;
-
-    // int a = newPos;
-    // int b = newPos + 5;
-
-    for (int i = currPos - 1; i < currPos + 5 + 1; i++) {
-        int initialPos = K + (i - currPos) * (width + gap);
-        int index = i;
-        if (i >= pixList.size()) index = i - pixList.size();
-        if (i < 0) index = pixList.size() + i;
-        if (index >= pixList.size()) index = index - pixList.size(); // cus sometimes u gotta subtract twice :>
-        PaintGameRect(initialPos, &painter, index, newPos + 2 >= pixList.size() ? (newPos + 2) - pixList.size(): newPos + 2);
+    if (pixList.size() >= 5) {
+        for (int i = currPos - 1; i < currPos + 5; i++) {
+            int initialPos = (i - currPos) * (width + gap);
+            int index = i;
+            if (i >= pixList.size()) index = i - pixList.size();
+            if (i < 0) index = pixList.size() + i;
+            if (index >= pixList.size()) index = index - pixList.size(); // cus sometimes u gotta subtract twice :>
+            PaintGameRect(initialPos, &painter, index, newPos + 2 >= pixList.size() ? (newPos + 2) - pixList.size(): newPos + 2);
+        }
+    } else {
+        for (int i = 0; i < (int) pixList.size(); i++) {
+            int initialPos = (5 - pixList.size()) * (width + gap)/2 + (i) * (width + gap);
+            PaintGameRect(initialPos, &painter, i, newPos);
+        }
     }
 }
 
@@ -86,18 +85,25 @@ void MainWindow::PaintGameRect(int initialPos, QPainter *painter, int i, int j, 
     float y_pos  = size().height() * 0.1f;
     float height = size().height() * 0.8f;
 
-    QRect rect(
+    QRect rect;
+    rect = QRect(
         initialPos,
         y_pos,
         width,
         height
         );
 
+    int move_x = 0;
+    if (pixList.size() < 5) {
+        // ts can prob  be simplified ngl
+        move_x = ((5 - pixList.size()) * (width + gap)/2 + (i) * (width + gap)) - size().width()/2 + (width + gap)/2;
+    }
+
     QRegion r(rect);
     painter->setClipRegion(r);
     QPixmap x = pixList[k + i];
     if (!x.isNull()) {
-        painter->drawPixmap(0, 0, x);
+        painter->drawPixmap(move_x, 0, x);
     }
 
     if (i != j) {
@@ -110,7 +116,7 @@ void MainWindow::PaintGameRect(int initialPos, QPainter *painter, int i, int j, 
 }
 
 void MainWindow::runProgram() {
-    QProcess::startDetached("cmd", {"/C", runnablesList[newPos]});
+    QProcess::startDetached("cmd", {"/C", runnablesList[newPos + 2 >= pixList.size() ? (newPos + 2) - pixList.size(): newPos + 2]});
     exit(0);
 }
 
@@ -121,6 +127,12 @@ void MainWindow::keyPressEvent(QKeyEvent *e) {
         newPos++;
     } else if (e->key() == Qt::Key_Return) {
         runProgram();
+    } else if (e->key() == Qt::Key_Backspace) {
+        if (search.size() > 0) search.pop_back();
+    }else {
+        if (e->text() != "" && e->text().length() == 1) {
+            search += e->text().toStdString();
+        }
     }
     update();
 
@@ -129,11 +141,13 @@ void MainWindow::keyPressEvent(QKeyEvent *e) {
 }
 
 void MainWindow::AddPixs() {
+    // TODO: load the middle ones first
     for (size_t i = 0; i < pixPathsList.size(); i++) {
         QPixmap temp = QPixmap(QString::fromStdString(pixPathsList[i]));
         pixList[i].swap(temp);
         pixList[i] = size().height() > size().width() ? pixList[i].scaledToHeight(size().height(), Qt::SmoothTransformation) : pixList[i].scaledToWidth(size().width(), Qt::SmoothTransformation);
     }
+    completedLoading = true;
 }
 
 void MainWindow::initImages() {
@@ -149,12 +163,16 @@ void MainWindow::initImages() {
             if (content != "") {
                 allPathsInFile.push_back(content);
 
+                std::string temp_1 = content.substr(content.find("::") + 2);
                 std::string image = content.substr(0, content.find("::"));
-                std::string runnable = content.substr(content.find("::") + 2);
+                std::string runnable = temp_1.substr(0, content.find("::") - 2);
+                std::string name = temp_1.substr(content.find("::"));
+
 
                 pixPathsList.push_back(image);
                 pixList.push_back(QPixmap());
                 runnablesList.push_back(QString::fromStdString(runnable));
+                namesList.push_back(name);
             }
         }
     } else {
@@ -168,6 +186,7 @@ void MainWindow::addFilesToList(std::string baseFolder, std::vector<std::string>
     std::vector<std::string> toAdd;
     std::string image = "";
     std::string runnable = "";
+    std::string dirname = "";
 
     for (auto& c : std::filesystem::directory_iterator(baseFolder)) {
         if (!c.is_directory()) {
@@ -186,7 +205,9 @@ void MainWindow::addFilesToList(std::string baseFolder, std::vector<std::string>
                 runnable = path;
             }
 
-            if (addToLists(image, runnable, &toAdd, &allPathsInFile)) {
+            dirname = c.path().string().substr(c.path().string().find_last_of("\\") + 1);
+
+            if (addToLists(image, runnable, dirname, &toAdd, &allPathsInFile)) {
                 image = "";
                 runnable = "";
             }
@@ -194,7 +215,7 @@ void MainWindow::addFilesToList(std::string baseFolder, std::vector<std::string>
         }
     }
 
-    addToLists(image, runnable, &toAdd, &allPathsInFile);
+    addToLists(image, runnable, dirname, &toAdd, &allPathsInFile);
 
     std::ofstream outFile;
     outFile.open("C:\\Users\\Deeptanshu\\Documents\\killme.txt", std::ios_base::app);
@@ -204,11 +225,11 @@ void MainWindow::addFilesToList(std::string baseFolder, std::vector<std::string>
     outFile.close();
 }
 
-bool MainWindow::addToLists(std::string image, std::string runnable, std::vector<std::string> *toAdd, std::vector<std::string> *allPathsInFile) {
+bool MainWindow::addToLists(std::string image, std::string runnable, std::string dirname, std::vector<std::string> *toAdd, std::vector<std::string> *allPathsInFile) {
     if (image == "" || runnable == "") return false;
     std::string substr = image.substr(0, image.size() - 10);
     if (runnable.find(substr) != std::string::npos) {
-        std::string fullName = image + "::" + runnable;
+        std::string fullName = image + "::" + runnable + "::" + dirname;
         if (std::find(allPathsInFile->begin(), allPathsInFile->end(), fullName) == allPathsInFile->end()) {
             toAdd->push_back(fullName);
             pixList.push_back(QPixmap());
@@ -223,6 +244,12 @@ bool MainWindow::addToLists(std::string image, std::string runnable, std::vector
 }
 
 void MainWindow::animationFunc() {
+    if (firstTime) {
+        if (completedLoading)
+            firstTime = false;
+        update();
+    }
+    if (pixList.size() < 5) {return;}
     if (jump) {
         if (std::abs(currPos - (int) pixList.size() - 1) > std::abs(currPos - 0)) {
             currPos = pixList.size() + currPos;
@@ -232,15 +259,15 @@ void MainWindow::animationFunc() {
         jump = false;
         update();
     } else {
-        if (pixList.size() > 4 && std::abs(currPos - newPos) > 0.001f) {
-            currPos = lerp2(currPos, newPos, 0.1);
+        if (std::abs(currPos - newPos) > 0.001f) {
+            currPos = lerp(currPos, newPos, 0.1);
             update();
         }
     }
 }
 
-float MainWindow::lerp2(float start, float end, float t) {
-    float val = start + (std::abs(end - start) > 1 ? (1 * std::abs(end - start)/(end - start)) : (end - start)) * t;
+float MainWindow::lerp(float start, float end, float t) {
+    float val = start + (end - start) * t;
     return val;
 }
 
@@ -258,6 +285,57 @@ QImage MainWindow::applyEffectToImage(QImage src, QGraphicsEffect *effect, int e
     QPainter ptr(&res);
     scene.render(&ptr, QRectF(), QRectF( -extent, -extent, src.width()+extent*2, src.height()+extent*2 ) );
     return res;
+}
+
+std::wstring MainWindow::GetStringValueFromHKLM(const std::wstring& regSubKey, const std::wstring& regValue)
+{
+    size_t bufferSize = 0xFFF; // If too small, will be resized down below.
+    std::wstring valueBuf; // Contiguous buffer since C++11.
+    valueBuf.resize(bufferSize);
+    auto cbData = static_cast<DWORD>(bufferSize * sizeof(wchar_t));
+    auto rc = RegGetValueW(
+        HKEY_CURRENT_USER,
+        regSubKey.c_str(),
+        regValue.c_str(),
+        RRF_RT_REG_SZ,
+        nullptr,
+        static_cast<void*>(valueBuf.data()),
+        &cbData
+        );
+    while (rc == ERROR_MORE_DATA)
+    {
+        // Get a buffer that is big enough.
+        cbData /= sizeof(wchar_t);
+        if (cbData > static_cast<DWORD>(bufferSize))
+        {
+            bufferSize = static_cast<size_t>(cbData);
+        }
+        else
+        {
+            bufferSize *= 2;
+            cbData = static_cast<DWORD>(bufferSize * sizeof(wchar_t));
+        }
+        valueBuf.resize(bufferSize);
+        rc = RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            regSubKey.c_str(),
+            regValue.c_str(),
+            RRF_RT_REG_SZ,
+            nullptr,
+            static_cast<void*>(valueBuf.data()),
+            &cbData
+            );
+    }
+    if (rc == ERROR_SUCCESS)
+    {
+        cbData /= sizeof(wchar_t);
+        valueBuf.resize(static_cast<size_t>(cbData - 1)); // remove end null character
+        return valueBuf;
+    }
+    else
+    {
+        throw std::runtime_error("Windows system error code: " + std::to_string(rc));
+    }
 }
 
 MainWindow::~MainWindow()

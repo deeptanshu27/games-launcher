@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <windows.h>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -28,6 +29,7 @@ private:
     std::vector<QPixmap> pixList;
     std::vector<std::string> pixPathsList;
     std::vector<QString> runnablesList;
+    std::vector<std::string> namesList;
 
     bool playSelected = true;
 
@@ -42,19 +44,24 @@ private:
     int currActivity; // 0 = scrolling, 1 = loading
 
     bool jump = false;
+    bool firstTime = true;
+    bool completedLoading = false;
+
+    std::string search;
 
     int buttonsPos;
 
     void AddPixs();
     void initImages();
     float lerp(float start, float end, float t);
-    float lerp2(float start, float end, float t);
     void runProgram();
     void setButtonSelect();
     void PaintGameRect(int initial_pos, QPainter *painter, int i, int j, int k = 0);
-    bool addToLists(std::string image, std::string runnable, std::vector<std::string> *toAdd, std::vector<std::string> *allPathsInFile);
+    bool addToLists(std::string image, std::string runnable, std::string dirname, std::vector<std::string> *toAdd, std::vector<std::string> *allPathsInFile);
     void addFilesToList(std::string baseFolder, std::vector<std::string> allPathsInFile);
     QImage applyEffectToImage(QImage src, QGraphicsEffect *effect, int extent = 0);
+
+    std::wstring GetStringValueFromHKLM(const std::wstring& regSubKey, const std::wstring& regValue);
 protected:
     void paintEvent(QPaintEvent *e) override;
     void keyPressEvent(QKeyEvent *e) override;
