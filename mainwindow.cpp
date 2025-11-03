@@ -26,7 +26,6 @@ MainWindow::MainWindow(QWidget *parent)
     setMouseTracking(true);
     ui->centralwidget->setMouseTracking(true);
 
-    // https://stackoverflow.com/questions/34065/how-to-read-a-value-from-the-windows-registry
     std::wstring regSubKey = L"Control Panel\\Desktop";
     std::wstring regValue(L"WallPaper");
     std::wstring valueFromRegistry;
@@ -37,6 +36,7 @@ MainWindow::MainWindow(QWidget *parent)
     bkgnd = bkgnd.scaled(this->size());
     QPalette palette;
     QGraphicsBlurEffect *blur = new QGraphicsBlurEffect;
+    blur->setBlurHints(QGraphicsBlurEffect::PerformanceHint);
     blur->setBlurRadius(8);
     palette.setBrush(QPalette::Window, applyEffectToImage(bkgnd.toImage(), blur));
     this->setPalette(palette);
@@ -45,46 +45,43 @@ MainWindow::MainWindow(QWidget *parent)
     ui->widget->move(QPoint(ui->widget->x(), buttonsPos));
 
     initImages();
-    // AddPixs();
     QFuture _ = QtConcurrent::run(&MainWindow::AddPixs, this);
+
 
     width = (size().width()) / 5 - gap;
 
-    originalWidth = width;
-
     currActivity = 0;
     currPos = 0;
-    newPos = pixList.size() / 2;
+    newPos = gamesVector.size() / 2;
+
+    y_pos  = size().height() * 0.1f;
+    height = size().height() * 0.8f;
 
     timer = new QTimer(this);
-    connect(timer, SIGNAL(timeout()), this, SLOT(animationFunc()));
+    connect(timer, &QTimer::timeout, this, &MainWindow::animationFunc);
+    timer->setTimerType(Qt::PreciseTimer);
     timer->start(17);
 }
 
 void MainWindow::paintEvent(QPaintEvent *) {
     QPainter painter(this);
 
-    if (pixList.size() >= 5) {
+    int vectorSize = gamesVector.size();
+    if (vectorSize >= 5) {
         for (int i = currPos - 1; i < currPos + 5; i++) {
             int initialPos = (i - currPos) * (width + gap);
-            int index = i;
-            if (i >= pixList.size()) index = i - pixList.size();
-            if (i < 0) index = pixList.size() + i;
-            if (index >= pixList.size()) index = index - pixList.size(); // cus sometimes u gotta subtract twice :>
-            PaintGameRect(initialPos, &painter, index, newPos + 2 >= pixList.size() ? (newPos + 2) - pixList.size(): newPos + 2);
+            int index = (i + vectorSize) % vectorSize;
+            PaintGameRect(initialPos, &painter, index, newPos + 2 >= vectorSize ? (newPos + 2) - vectorSize: newPos + 2);
         }
     } else {
-        for (int i = 0; i < (int) pixList.size(); i++) {
-            int initialPos = (5 - pixList.size()) * (width + gap)/2 + (i) * (width + gap);
+        for (int i = 0; i < (int) vectorSize; i++) {
+            int initialPos = (5 - vectorSize) * (width + gap)/2 + (i) * (width + gap);
             PaintGameRect(initialPos, &painter, i, newPos);
         }
     }
 }
 
-void MainWindow::PaintGameRect(int initialPos, QPainter *painter, int i, int j, int k) {
-    float y_pos  = size().height() * 0.1f;
-    float height = size().height() * 0.8f;
-
+void MainWindow::PaintGameRect(int initialPos, QPainter *painter, int i, int j) {
     QRect rect;
     rect = QRect(
         initialPos,
@@ -94,17 +91,15 @@ void MainWindow::PaintGameRect(int initialPos, QPainter *painter, int i, int j, 
         );
 
     int move_x = 0;
-    if (pixList.size() < 5) {
+    if (gamesVector.size() < 5) {
         // ts can prob  be simplified ngl
-        move_x = ((5 - pixList.size()) * (width + gap)/2 + (i) * (width + gap)) - size().width()/2 + (width + gap)/2;
+        move_x = ((5 - gamesVector.size()) * (width + gap)/2 + (i) * (width + gap)) - size().width()/2 + (width + gap)/2;
     }
 
     QRegion r(rect);
     painter->setClipRegion(r);
-    QPixmap x = pixList[k + i];
-    if (!x.isNull()) {
-        painter->drawPixmap(move_x, 0, x);
-    }
+
+    painter->drawPixmap(move_x, 0, gamesVector[i].pixmap);
 
     if (i != j) {
         QPainterPath path;
@@ -116,15 +111,20 @@ void MainWindow::PaintGameRect(int initialPos, QPainter *painter, int i, int j, 
 }
 
 void MainWindow::runProgram() {
-    QProcess::startDetached("cmd", {"/C", runnablesList[newPos + 2 >= pixList.size() ? (newPos + 2) - pixList.size(): newPos + 2]});
+    int i = newPos + 2 >= gamesVector.size() ? (newPos + 2) - gamesVector.size(): newPos + 2;
+    QProcess::startDetached("cmd", {"/C", gamesVector[i].runnable.c_str()});
     exit(0);
 }
 
 void MainWindow::keyPressEvent(QKeyEvent *e) {
     if (e->key() == Qt::Key_Left) {
         newPos--;
+        if (!timer->isActive()) timer->start();
+        update();
     } else if (e->key() == Qt::Key_Right) {
         newPos++;
+        if (!timer->isActive()) timer->start();
+        update();
     } else if (e->key() == Qt::Key_Return) {
         runProgram();
     } else if (e->key() == Qt::Key_Backspace) {
@@ -134,18 +134,18 @@ void MainWindow::keyPressEvent(QKeyEvent *e) {
             search += e->text().toStdString();
         }
     }
-    update();
 
-    if (newPos < 0) {newPos = pixList.size() - 1; jump = true;}
-    else if (newPos > (int) pixList.size() - 1) {newPos = 0; jump = true;}
+    if (newPos < 0) {newPos = gamesVector.size() - 1; jump = true;}
+    else if (newPos > (int) gamesVector.size() - 1) {newPos = 0; jump = true;}
 }
 
 void MainWindow::AddPixs() {
     // TODO: load the middle ones first
-    for (size_t i = 0; i < pixPathsList.size(); i++) {
-        QPixmap temp = QPixmap(QString::fromStdString(pixPathsList[i]));
-        pixList[i].swap(temp);
-        pixList[i] = size().height() > size().width() ? pixList[i].scaledToHeight(size().height(), Qt::SmoothTransformation) : pixList[i].scaledToWidth(size().width(), Qt::SmoothTransformation);
+
+    for (auto& p : gamesVector) {
+        QImage img(p.path.c_str());
+        img = size().height() > size().width() ? img.scaledToHeight(size().height(), Qt::FastTransformation) : img.scaledToWidth(size().width(), Qt::SmoothTransformation);
+        p.pixmap = QPixmap::fromImage(img);
     }
     completedLoading = true;
 }
@@ -160,26 +160,23 @@ void MainWindow::initImages() {
 
     if (!jsonFile.fail()) {
         while (std::getline(jsonFile, content)) {
-            if (content != "") {
-                allPathsInFile.push_back(content);
+            if (content == "") {continue;}
 
-                std::string temp_1 = content.substr(content.find("::") + 2);
-                std::string image = content.substr(0, content.find("::"));
-                std::string runnable = temp_1.substr(0, content.find("::") - 2);
-                std::string name = temp_1.substr(content.find("::"));
+            allPathsInFile.push_back(content);
 
+            std::string temp_1 = content.substr(content.find("::") + 2);
+            std::string image = content.substr(0, content.find("::"));
+            std::string runnable = temp_1.substr(0, content.find("::") - 2);
+            std::string name = temp_1.substr(content.find("::"));
 
-                pixPathsList.push_back(image);
-                pixList.push_back(QPixmap());
-                runnablesList.push_back(QString::fromStdString(runnable));
-                namesList.push_back(name);
-            }
+            gamesVector.push_back(Item(name, runnable, image));
         }
+        jsonFile.close();
     } else {
+        jsonFile.close();
         addFilesToList(baseFolder, allPathsInFile);
     }
 
-    jsonFile.close();
 }
 
 void MainWindow::addFilesToList(std::string baseFolder, std::vector<std::string> allPathsInFile) {
@@ -232,9 +229,7 @@ bool MainWindow::addToLists(std::string image, std::string runnable, std::string
         std::string fullName = image + "::" + runnable + "::" + dirname;
         if (std::find(allPathsInFile->begin(), allPathsInFile->end(), fullName) == allPathsInFile->end()) {
             toAdd->push_back(fullName);
-            pixList.push_back(QPixmap());
-            runnablesList.push_back(QString::fromStdString(runnable));
-            pixPathsList.push_back(image);
+            gamesVector.push_back(Item(dirname, runnable, image));
         }
         image = "";
         runnable = "";
@@ -249,12 +244,14 @@ void MainWindow::animationFunc() {
             firstTime = false;
         update();
     }
-    if (pixList.size() < 5) {return;}
+
+    if (gamesVector.size() < 5) {return;}
+
     if (jump) {
-        if (std::abs(currPos - (int) pixList.size() - 1) > std::abs(currPos - 0)) {
-            currPos = pixList.size() + currPos;
+        if (std::abs(currPos - (int) gamesVector.size() - 1) > std::abs(currPos - 0)) {
+            currPos = gamesVector.size() + currPos;
         } else {
-            currPos = 0 - (pixList.size() - currPos);
+            currPos = 0 - (gamesVector.size() - currPos);
         }
         jump = false;
         update();
@@ -263,6 +260,10 @@ void MainWindow::animationFunc() {
             currPos = lerp(currPos, newPos, 0.1);
             update();
         }
+
+    }
+    if (std::abs(currPos - newPos) <= 0.001f) {
+        timer->stop();
     }
 }
 
@@ -287,6 +288,7 @@ QImage MainWindow::applyEffectToImage(QImage src, QGraphicsEffect *effect, int e
     return res;
 }
 
+// https://stackoverflow.com/questions/34065/how-to-read-a-value-from-the-windows-registry
 std::wstring MainWindow::GetStringValueFromHKLM(const std::wstring& regSubKey, const std::wstring& regValue)
 {
     size_t bufferSize = 0xFFF; // If too small, will be resized down below.

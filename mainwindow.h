@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <windows.h>
+#include <Item.h>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -26,16 +27,16 @@ private:
     QPixmap pix;
 
     const int gap = 10;
-    std::vector<QPixmap> pixList;
-    std::vector<std::string> pixPathsList;
-    std::vector<QString> runnablesList;
-    std::vector<std::string> namesList;
+    // std::vector<std::string> pixPathsList;
+
+    std::vector<Item> gamesVector;
 
     bool playSelected = true;
 
     int width;
 
-    int originalWidth;
+    float y_pos = 0;
+    float height = 0;
 
     int oldPos;
     float currPos;
@@ -56,7 +57,7 @@ private:
     float lerp(float start, float end, float t);
     void runProgram();
     void setButtonSelect();
-    void PaintGameRect(int initial_pos, QPainter *painter, int i, int j, int k = 0);
+    void PaintGameRect(int initial_pos, QPainter *painter, int i, int j);
     bool addToLists(std::string image, std::string runnable, std::string dirname, std::vector<std::string> *toAdd, std::vector<std::string> *allPathsInFile);
     void addFilesToList(std::string baseFolder, std::vector<std::string> allPathsInFile);
     QImage applyEffectToImage(QImage src, QGraphicsEffect *effect, int extent = 0);
